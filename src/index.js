@@ -44,13 +44,13 @@ const main = () => {
         input: 'train.txt',
         output: 'model',
     }
-    // fasttext.train('supervised', config, (s, e) => {
-    //     if(e) console.log('error',e)
-    //     else console.log('success',s)
-    // })
+    fasttext.train('supervised', config, (s, e) => {
+        if(e) console.log('error',e)
+        else console.log('success',s)
+    })
     fasttext.predict(
-        "model.bin", 1,
-        ['Trần Văn Thảo hạ võ sĩ Philippines'],
+        "model.bin", 3,
+        ['Hơn 90 bao rác nhiễm phóng xạ trôi xuống sông ở Nhật'],
         function (success, error) {
         
           if(error) {

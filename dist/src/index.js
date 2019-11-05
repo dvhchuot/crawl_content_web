@@ -58,11 +58,11 @@ var main = function main() {
         dim: 100,
         input: 'train.txt',
         output: 'model'
-        // fasttext.train('supervised', config, (s, e) => {
-        //     if(e) console.log('error',e)
-        //     else console.log('success',s)
-        // })
-    };_nodeFasttext2.default.predict("model.bin", 1, ['Trần Văn Thảo hạ võ sĩ Philippines'], function (success, error) {
+    };
+    _nodeFasttext2.default.train('supervised', config, function (s, e) {
+        if (e) console.log('error', e);else console.log('success', s);
+    });
+    _nodeFasttext2.default.predict("model.bin", 3, ['Hơn 90 bao rác nhiễm phóng xạ trôi xuống sông ở Nhật'], function (success, error) {
 
         if (error) {
             console.log(error);

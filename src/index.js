@@ -6,10 +6,11 @@ import fs from 'fs'
 import fasttext from 'node-fasttext'
 
 import { addlabel } from "./common/labelHelper";
+import { formatfile } from "./common/formatFile";
 
 // fs.readFile()
 
-const start = async data => {
+const start = async (data, callback) => {
     const newData = []
     await Promise.all(data.map(async item => {
         const html = await getHTMLOfUrl(item.url)
@@ -24,44 +25,88 @@ const start = async data => {
         fs.appendFileSync('train.txt', txtTitle)
         fs.appendFileSync('train.txt', txtContent)
     }))
+    if(typeof callback ==='function') callback()
 }
 
-const train = () => {
-    
+
+
+const readFile = (file, callback) => {
+    const data = []
+    lineReader.eachLine(file, async (line, a) => {
+        const split = line.split(',')
+        const url = split[0]
+        const subject = split.slice(1)
+        data.push({url, subject})
+        if (a) {
+            if(typeof callback ==='function') callback(data)
+        }
+      })
 }
 
-const main = () => {
-    // const data = []
-    // lineReader.eachLine('Url.txt', async (line, a) => {
-    //     const split = line.split(',')
-    //     const url = split[0]
-    //     const subject = split.slice(1)
-    //     data.push({url, subject})
-    //     if (a) start(data)
-    //   })
-    const config = {
+const train = fileTrain => {
+     const config = {
         dim: 100,
-        input: 'train.txt',
+        input: fileTrain,
         output: 'model',
     }
     fasttext.train('supervised', config, (s, e) => {
         if(e) console.log('error',e)
         else console.log('success',s)
     })
+}
+
+const main = () => {
+
+    // if(!fs.existsSync('model2.bin'))
+    // {
+    //     console.log('object')
+    //     readFile('Url.txt',data => start(data,() => {
+    //     train('train.txt')
+    //     }))
+    // }
+    
+    
+    readFile('data.txt',async data => {
+        for (let index = 0; index < data.length; index++) {
+            const element = data[index];
+            const html = await getHTMLOfUrl(element.url)
+            const title = crawlerTitle(html.data)
+            const content = crawlerContent(html.data)
+            test({content, title})
+        }
+    })
+    
+    
+}
+
+const test = ({content, title}) => {
     fasttext.predict(
-        "model.bin", 3,
-        ['Hơn 90 bao rác nhiễm phóng xạ trôi xuống sông ở Nhật'],
+        "model.bin", 1,
+        [`${JSON.stringify(title)}`, `${JSON.stringify(content)}`],
         function (success, error) {
         
           if(error) {
             console.log(error)
             return;
           }
-        
-          console.log(success)
+          if(success.length > 0) {
+              const la = success[0]
+              const {label} = la
+            writeFile({fileName: title, folderName: label, content})
+          }
+         
         })
-    // const html = getHTMLOfUrl('https://vnexpress.net/giao-duc/giao-trinh-truong-dai-hoc-co-ban-do-duong-luoi-bo-4006631.html')
-    // .then(r => crawler(r.data))
+}
+
+const writeFile = ({fileName, folderName, content}) => {
+    console.log("TCL: writeFile -> folderName", folderName)
+    const realFolder = !folderName || folderName === '' || folderName === 'n/a' ? 'other' : folderName
+    const realFile = formatfile(fileName)
+    if(!fs.existsSync(`output/${realFolder.replace('__label__','')}`)) fs.mkdirSync(`output/${realFolder.replace('__label__','')}`)
+    fs.writeFile(`output/${realFolder.replace('__label__','')}/${realFile}.txt`,content,() => {
+        // console.log(e)
+        console.log('success')
+    })
 }
 
 export default main

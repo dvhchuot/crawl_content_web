@@ -22,11 +22,13 @@ var _nodeFasttext2 = _interopRequireDefault(_nodeFasttext);
 
 var _labelHelper = require("./common/labelHelper");
 
+var _formatFile = require("./common/formatFile");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // fs.readFile()
 
-var start = async function start(data) {
+var start = async function start(data, callback) {
     var newData = [];
     await Promise.all(data.map(async function (item) {
         var html = await (0, _api.getHTMLOfUrl)(item.url);
@@ -41,38 +43,87 @@ var start = async function start(data) {
         _fs2.default.appendFileSync('train.txt', txtTitle);
         _fs2.default.appendFileSync('train.txt', txtContent);
     }));
+    if (typeof callback === 'function') callback();
 };
 
-var train = function train() {};
+var readFile = function readFile(file, callback) {
+    var data = [];
+    _lineReader2.default.eachLine(file, async function (line, a) {
+        var split = line.split(',');
+        var url = split[0];
+        var subject = split.slice(1);
+        data.push({ url: url, subject: subject });
+        if (a) {
+            if (typeof callback === 'function') callback(data);
+        }
+    });
+};
 
-var main = function main() {
-    // const data = []
-    // lineReader.eachLine('Url.txt', async (line, a) => {
-    //     const split = line.split(',')
-    //     const url = split[0]
-    //     const subject = split.slice(1)
-    //     data.push({url, subject})
-    //     if (a) start(data)
-    //   })
+var train = function train(fileTrain) {
     var config = {
         dim: 100,
-        input: 'train.txt',
-        output: 'model'
+        input: fileTrain,
+        output: 'model2'
     };
     _nodeFasttext2.default.train('supervised', config, function (s, e) {
         if (e) console.log('error', e);else console.log('success', s);
     });
-    _nodeFasttext2.default.predict("model.bin", 3, ['Hơn 90 bao rác nhiễm phóng xạ trôi xuống sông ở Nhật'], function (success, error) {
+};
+
+var main = function main() {
+
+    if (!_fs2.default.existsSync('model2.bin')) {
+        console.log('object');
+        readFile('Url.txt', function (data) {
+            return start(data, function () {
+                train('train.txt');
+            });
+        });
+    }
+
+    readFile('data.txt', async function (data) {
+        for (var index = 0; index < data.length; index++) {
+            var element = data[index];
+            var html = await (0, _api.getHTMLOfUrl)(element.url);
+            var title = (0, _crawl.crawlerTitle)(html.data);
+            var content = (0, _crawl.crawlerContent)(html.data);
+            test({ content: content, title: title });
+        }
+    });
+};
+
+var test = function test(_ref) {
+    var content = _ref.content,
+        title = _ref.title;
+
+    _nodeFasttext2.default.predict("model.bin", 1, ["" + JSON.stringify(title), "" + JSON.stringify(content)], function (success, error) {
 
         if (error) {
             console.log(error);
             return;
         }
+        if (success.length > 0) {
+            var la = success[0];
+            var label = la.label;
 
-        console.log(success);
+            writeFile({ fileName: title, folderName: label, content: content });
+        }
     });
-    // const html = getHTMLOfUrl('https://vnexpress.net/giao-duc/giao-trinh-truong-dai-hoc-co-ban-do-duong-luoi-bo-4006631.html')
-    // .then(r => crawler(r.data))
+};
+
+var writeFile = function writeFile(_ref2) {
+    var fileName = _ref2.fileName,
+        folderName = _ref2.folderName,
+        content = _ref2.content;
+
+    console.log("TCL: writeFile -> folderName", folderName);
+    var realFolder = !folderName || folderName === '' || folderName === 'n/a' ? 'other' : folderName;
+    var realFile = (0, _formatFile.formatfile)(fileName);
+    if (!_fs2.default.existsSync("output/" + realFolder.replace('__label__', ''))) _fs2.default.mkdirSync("output/" + realFolder.replace('__label__', ''));
+    _fs2.default.writeFile("output/" + realFolder.replace('__label__', '') + "/" + realFile + ".txt", content, function () {
+        // console.log(e)
+        console.log('success');
+    });
 };
 
 exports.default = main;
